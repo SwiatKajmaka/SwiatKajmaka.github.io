@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Quiz z Google Sheets</title>
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f0f4f8;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    margin: 0;
+    padding: 2rem;
+  }
+  #quiz-container {
+    background: white;
+    padding: 2rem 3rem;
+    border-radius: 12px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    max-width: 480px;
+    width: 100%;
+  }
+  h1 {
+    margin-top: 0;
+    font-size: 1.8rem;
+    color: #333;
+    text-align: center;
+  }
+  #question {
+    font-size: 1.3rem;
+    margin-bottom: 1.5rem;
+    min-height: 60px;
+  }
+  .answer-btn {
+    display: block;
+    width: 100%;
+    background: #e0e7ff;
+    border: none;
+    border-radius: 8px;
+    padding: 0.8rem 1rem;
+    margin-bottom: 0.8rem;
+    font-size: 1.1rem;
+    color: #1a1a1a;
+    cursor: pointer;
+    transition: background 0.3s, color 0.3s;
+  }
+  .answer-btn:hover:not(.disabled) {
+    background: #c7d2fe;
+  }
+  .answer-btn.correct {
+    background: #34d399;
+    color: white;
+    cursor: default;
+  }
+  .answer-btn.wrong {
+    background: #f87171;
+    color: white;
+    cursor: default;
+  }
+  .answer-btn.disabled {
+    cursor: default;
+  }
+  #next-btn {
+    display: none;
+    margin-top: 1.5rem;
+    background: #2563eb;
+    color: white;
+    border: none;
+    padding: 0.8rem 1.5rem;
+    font-size: 1.1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+  #next-btn:hover {
+    background: #1e40af;
+  }
+  #loading {
+    text-align: center;
+    color: #555;
+    margin-bottom: 1rem;
+  }
+</style>
+</head>
+<body>
+
+<div id="quiz-container">
+  <h1>Quiz z Google Sheets</h1>
+  <div id="loading">Ładuję pytanie...</div>
+  <div id="question"></div>
+  <div id="answers"></div>
+  <button id="next-btn">Dalej</button>
+</div>
+
+<script>
+  const API_URL = "https://script.google.com/macros/s/AKfycbzEusKPMfWayLpMUb5c0PeMREWV8xr0zBF60Uhxf3AqjihnqcMXkAb0BGZFvgu9nZvq/exec"; // <-- tutaj wklej swój URL Apps Script!
+
+  const questionEl = document.getElementById("question");
+  const answersEl = document.getElementById("answers");
+  const nextBtn = document.getElementById("next-btn");
+  const loadingEl = document.getElementById("loading");
+
+  let correctAnswer = null;
+  let answered = false;
+
+  function shuffleArray(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  async function loadQuestion() {
+    loadingEl.style.display = "block";
+    questionEl.textContent = "";
+    answersEl.innerHTML = "";
+    nextBtn.style.display = "none";
+    answered = false;
+
+    try {
+      const res = await fetch(API_URL);
+      if (!res.ok) throw new Error("Błąd sieci");
+      const data = await res.json();
+
+      loadingEl.style.display = "none";
+
+      questionEl.textContent = data.question;
+      correctAnswer = data.answers[0]; // pierwsza w tablicy to poprawna odpowiedź
+
+      // Mieszamy odpowiedzi
+      const shuffledAnswers = shuffleArray([...data.answers]);
+
+      // Tworzymy przyciski odpowiedzi
+      shuffledAnswers.forEach(ans => {
+        const btn = document.createElement("button");
+        btn.textContent = ans;
+        btn.className = "answer-btn";
+        btn.addEventListener("click", () => selectAnswer(btn, ans));
+        answersEl.appendChild(btn);
+      });
+    } catch (e) {
+      loadingEl.textContent = "Nie udało się załadować pytania.";
+      console.error(e);
+    }
+  }
+
+  function selectAnswer(button, answer) {
+    if (answered) return;
+    answered = true;
+
+    // Zablokuj wszystkie przyciski
+    const buttons = answersEl.querySelectorAll("button");
+    buttons.forEach(btn => {
+      btn.disabled = true;
+      btn.classList.add("disabled");
+      if (btn.textContent === correctAnswer) btn.classList.add("correct");
+    });
+
+    // Jeśli wybrano źle
+    if (answer !== correctAnswer) {
+      button.classList.add("wrong");
+    }
+
+    nextBtn.style.display = "inline-block";
+  }
+
+  nextBtn.addEventListener("click", loadQuestion);
+
+  // Załaduj pierwsze pytanie po starcie
+  loadQuestion();
+</script>
+
+</body>
+</html>
