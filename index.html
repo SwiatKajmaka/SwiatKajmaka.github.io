@@ -83,6 +83,31 @@
     color: #555;
     margin-bottom: 1rem;
   }
+#history .card {
+  border-left: 6px solid #2563eb;
+  background: #f9fafb;
+  padding: 1rem;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  margin-bottom: 1rem;
+}
+#history .card.correct {
+  border-left-color: #10b981;
+}
+#history .card.wrong {
+  border-left-color: #ef4444;
+}
+#history .card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  color: #111827;
+}
+#history .card p {
+  margin: 0.2rem 0;
+  font-size: 0.95rem;
+  color: #374151;
+}
+
 </style>
 </head>
 <body>
@@ -93,18 +118,25 @@
   <div id="question"></div>
   <div id="answers"></div>
   <button id="next-btn">Dalej</button>
+  <div id="history" style="margin-top: 2rem;"></div>
 </div>
 
 <script>
-  const API_URL = "https://script.google.com/macros/s/AKfycbzEusKPMfWayLpMUb5c0PeMREWV8xr0zBF60Uhxf3AqjihnqcMXkAb0BGZFvgu9nZvq/exec"; // <-- tutaj wklej swój URL Apps Script!
+  const API_URL = "https://script.google.com/macros/s/AKfycbzEusKPMfWayLpMUb5c0PeMREWV8xr0zBF60Uhxf3AqjihnqcMXkAb0BGZFvgu9nZvq/exec";
 
   const questionEl = document.getElementById("question");
   const answersEl = document.getElementById("answers");
   const nextBtn = document.getElementById("next-btn");
   const loadingEl = document.getElementById("loading");
+  const historyEl = document.getElementById("history");
+  let history = [];
+
 
   let correctAnswer = null;
   let answered = false;
+  let score = 0;
+  let currentQuestion = 0;
+  const maxQuestions = 10;
 
   function shuffleArray(arr) {
     for (let i = arr.length - 1; i > 0; i--) {
@@ -115,6 +147,11 @@
   }
 
   async function loadQuestion() {
+    if (currentQuestion >= maxQuestions) {
+      showFinalScore();
+      return;
+    }
+
     loadingEl.style.display = "block";
     questionEl.textContent = "";
     answersEl.innerHTML = "";
@@ -127,14 +164,10 @@
       const data = await res.json();
 
       loadingEl.style.display = "none";
+      questionEl.textContent = `Pytanie ${currentQuestion + 1}: ${data.question}`;
+      correctAnswer = data.answers[0];
 
-      questionEl.textContent = data.question;
-      correctAnswer = data.answers[0]; // pierwsza w tablicy to poprawna odpowiedź
-
-      // Mieszamy odpowiedzi
       const shuffledAnswers = shuffleArray([...data.answers]);
-
-      // Tworzymy przyciski odpowiedzi
       shuffledAnswers.forEach(ans => {
         const btn = document.createElement("button");
         btn.textContent = ans;
@@ -152,7 +185,6 @@
     if (answered) return;
     answered = true;
 
-    // Zablokuj wszystkie przyciski
     const buttons = answersEl.querySelectorAll("button");
     buttons.forEach(btn => {
       btn.disabled = true;
@@ -160,19 +192,62 @@
       if (btn.textContent === correctAnswer) btn.classList.add("correct");
     });
 
-    // Jeśli wybrano źle
     if (answer !== correctAnswer) {
       button.classList.add("wrong");
+    } else {
+      score++;
     }
 
+    currentQuestion++;
     nextBtn.style.display = "inline-block";
+    // Dodaj do historii
+history.push({
+  question: questionEl.textContent,
+  selected: answer,
+  correct: correctAnswer,
+  isCorrect: answer === correctAnswer
+});
+    updateHistory();
+
+  }
+function updateHistory() {
+  historyEl.innerHTML = ""; // Wyczyść
+  history.forEach((entry, index) => {
+    const card = document.createElement("div");
+    card.className = `card ${entry.isCorrect ? "correct" : "wrong"}`;
+    card.innerHTML = `
+      <h3>Pytanie ${index + 1}</h3>
+      <p><strong>${entry.question}</strong></p>
+      <p>Twoja odpowiedź: <strong>${entry.selected}</strong></p>
+      <p>Poprawna odpowiedź: <strong>${entry.correct}</strong></p>
+    `;
+    historyEl.appendChild(card);
+  });
+}
+
+
+  function showFinalScore() {
+    questionEl.textContent = `Twój wynik: ${score} z ${maxQuestions} poprawnych odpowiedzi.`;
+    answersEl.innerHTML = "";
+    nextBtn.textContent = "Zagraj ponownie";
+    nextBtn.style.display = "inline-block";
+    nextBtn.onclick = restartQuiz;
   }
 
-  nextBtn.addEventListener("click", loadQuestion);
+function restartQuiz() {
+  score = 0;
+  currentQuestion = 0;
+  history = [];
+  historyEl.innerHTML = "";
+  nextBtn.textContent = "Dalej";
+  nextBtn.onclick = () => loadQuestion();
+  loadQuestion();
+}
 
-  // Załaduj pierwsze pytanie po starcie
+  nextBtn.addEventListener("click", () => loadQuestion());
   loadQuestion();
 </script>
+
 
 </body>
 </html>
