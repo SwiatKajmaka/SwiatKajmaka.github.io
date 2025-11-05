@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz App z API v3</title>
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --success-color: #28a745;
+            --success-bg: #d1e7dd;
+            --success-border: #a3cfb7;
+            --danger-color: #dc3545;
+            --danger-bg: #f8d7da;
+            --danger-border: #f1aeb5;
+            --light-bg: #f8f9fa;
+            --light-border: #dee2e6;
+            --white: #ffffff;
+            --text-color: #333;
+            --skeleton-bg: #e0e0e0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 1rem 0;
+        }
+        #app-container {
+            background-color: var(--white);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 600px;
+            padding: 2rem;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        /* ----- Ekrany ----- */
+        #setup-screen, #quiz-screen, #results-screen, #loading-screen {
+            display: none;
+            flex-direction: column;
+        }
+        #setup-screen.active, #quiz-screen.active, #results-screen.active, #loading-screen.active {
+            display: flex;
+        }
+
+        /* ----- Przyciski i Inputy ----- */
+        .btn {
+            background-color: var(--light-bg);
+            border: 1px solid var(--light-border);
+            border-radius: 8px;
+            padding: 1rem;
+            font-size: 1rem;
+            text-align: left;
+            cursor: pointer;
+            transition: background-color 0.2s, border-color 0.2s, transform 0.1s;
+        }
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            text-align: center;
+            font-weight: 600;
+        }
+        .btn:hover:not(:disabled) {
+            background-color: #e9ecef;
+        }
+        .btn:active:not(:disabled) {
+            transform: translateY(1px);
+        }
+        .btn-primary:hover {
+            background-color: #0069d9;
+        }
+        input[type="number"] {
+            font-size: 1.2rem;
+            padding: 0.75rem;
+            border: 1px solid var(--light-border);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        
+        /* ----- Ekran Ustawień ----- */
+        #setup-screen h2 {
+            text-align: center;
+            margin-top: 0;
+        }
+
+        /* ----- Ekran Quizu ----- */
+        #progress-tracker {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #6c757d;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        #question {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: var(--text-color);
+            min-height: 4.5rem; /* Zapobiega skakaniu layoutu */
+        }
+        #answer-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .btn.correct {
+            background-color: var(--success-bg);
+            border-color: var(--success-border);
+            color: #155724;
+            font-weight: 600;
+        }
+        .btn.wrong {
+            background-color: var(--danger-bg);
+            border-color: var(--danger-border);
+            color: #721c24;
+            font-weight: 600;
+        }
+        .btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.9;
+        }
+        #next-btn {
+            margin-top: 1.5rem;
+            display: none; /* Ukryty na starcie pytania */
+        }
+
+        /* ----- Ekran Wyników ----- */
+        #results-screen {
+            text-align: center;
+        }
+        #score-text {
+            font-size: 1.75rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+        }
+        
+        /* ----- NOWOŚĆ: Skeleton Loader ----- */
+        @keyframes pulse {
+            0% { background-color: var(--skeleton-bg); }
+            50% { background-color: #f0f0f0; }
+            100% { background-color: var(--skeleton-bg); }
+        }
+        #skeleton-loader {
+            display: none; /* Domyślnie ukryty */
+        }
+        .skeleton-block {
+            animation: pulse 1.5s ease-in-out infinite;
+            border-radius: 8px;
+            background-color: var(--skeleton-bg);
+        }
+        .skeleton-question {
+            width: 100%;
+            height: 3.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .skeleton-answer {
+            width: 100%;
+            height: 3rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        /* ----- NOWOŚĆ: Question Tracker (Kwadraciki) ----- */
+        #question-tracker-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            margin-top: 2rem;
+            border-top: 1px solid var(--light-border);
+            padding-top: 1.5rem;
+        }
+        .tracker-square {
+            width: 30px;
+            height: 30px;
+            border: 2px solid var(--light-border);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.9rem;
+            background-color: var(--light-bg);
+        }
+        .tracker-square:hover {
+            border-color: var(--primary-color);
+        }
+        .tracker-square.current {
+            border-color: var(--primary-color);
+            background-color: #e6f2ff;
+            transform: scale(1.1);
+        }
+        .tracker-square.answered.correct {
+            background-color: var(--success-color);
+            border-color: var(--success-color);
+            color: white;
+        }
+        .tracker-square.answered.incorrect {
+            background-color: var(--danger-color);
+            border-color: var(--danger-color);
+            color: white;
+        }
+
+        #category-selection {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+        }
+        .category-tile {
+            /* Styl kafelka */
+            padding: 10px 20px;
+            border: 2px solid var(--light-border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+            background-color: var(--light-bg);
+            text-align: center;
+        }
+        .category-tile:hover {
+            border-color: #adb5bd;
+            background-color: #e9ecef;
+        }
+        .category-tile.selected {
+            /* Styl zaznaczonego kafelka */
+            border-color: var(--primary-color);
+            background-color: #e6f2ff; /* Bardzo jasny niebieski */
+            color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+        }
+        #setup-screen h3 {
+            text-align: center;
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+    /* --- Animacja "plusika" przy wynikach --- */
+        @keyframes floatUp {
+            0% {
+                opacity: 0;
+                transform: translateY(20px) scale(0.8);
+            }
+            30% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-40px) scale(1.2);
+            }
+        }
+    .plus-bubble {
+        position: relative;
+        display: inline-block; /* POWRÓT! Utrzymujemy pierwotne zachowanie inline */
+        
+        margin-left: 8px;
+        background-color: #dc3545;
+        color: #fff;
+        font-weight: 700;
+        border-radius: 50%;
+        
+        min-width: 2rem; /* Wymuś minimalną szerokość */
+        height: 2rem; /* Ustal stałą wysokość (musi być równa min-width) */
+        text-align: center; /* Wyśrodkowanie tekstu poziomo */
+        line-height: 2rem; /* Wyśrodkowanie tekstu pionowo (musi być równe wysokości) */
+        padding: 0; /* Usuwamy stary padding, żeby nie psuł wymiarów */
+
+        font-size: 0.9rem;
+        animation: floatUp 2.2s ease-in-out forwards;
+    }
+
+    /* ----- NOWE: Animacja odwracania karty (Card Flip) - POPRAWIONE ----- */
+        #image-card-container {
+            /* Nowy kontener, który utrzyma perspektywę */
+            position: relative;
+            width: 250px;
+            height: 250px;
+            margin: 0 auto 1.5rem; /* Margines po obrazku */
+            perspective: 1000px;
+        }
+
+        #image-card-flipper {
+            /* Element obracający się */
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transition: transform 1.2s; /* Czas trwania obrotu */
+            transform-style: preserve-3d;
+        }
+        
+        /* Klasa aktywująca obrót */
+        #image-card-flipper.flipped {
+            transform: rotateY(180deg);
+        }
+
+        .image-card-face {
+            /* Przód i tył karty */
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden; /* Ukryj tył, gdy przód jest widoczny */
+            /* USUNIĘTO: border-radius: 12px; */
+            /* USUNIĘTO: box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); */
+            
+            /* Te atrybuty pozostawiamy, bo są potrzebne dla centrowania */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #card-front {
+            transform: rotateY(0deg);
+        }
+
+        #card-back {
+            transform: rotateY(180deg); /* Odwrócony start */
+        }
+
+        .image-card-face img {
+            /* Teraz to obrazek jest centrum uwagi, więc to on może mieć cień/zaokrąglenia */
+            max-width: 100%;
+            max-height: 100%;
+            border-radius: 12px; /* Zostawiamy radius dla samego obrazka */
+            display: block;
+        }
+
+        /* --- Animacja kolorowego gradientu na liczniku --- */
+        @keyframes rainbowFlow {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+        }
+
+        #counter {
+        font-weight: 700;
+        font-size: 1.2em;
+        background: linear-gradient(70deg, #ff0000, #ff7f00, #ff8000, #0000ff, #8b00ff, #ff00ff);
+        background-size: 400% 400%;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: rainbowFlow 6s linear infinite;
+        }
+
+
+
+    </style>
+</head>
+<body>
+
+    <div id="app-container">
+        
+        <div id="setup-screen">
+            <h2>Witaj w Quizie!</h2>
+
+            <h3>Wybierz Kategorię:</h3>
+            <div id="category-selection">
+                </div>
+            <br>
+
+            <label for="question-count">Na ile pytań chcesz odpowiedzieć?</label>
+            <input type="number" id="question-count" value="5" min="1" max="20">
+            <button id="start-btn" class="btn btn-primary">Rozpocznij Quiz</button>
+        </div>
+
+        <div id="loading-screen">
+            <div id="loading-message">Pobieram pytania...</div>
+            
+            <div id="skeleton-loader">
+                <div class="skeleton-block skeleton-question"></div>
+                <div class="skeleton-block skeleton-answer"></div>
+                <div class="skeleton-block skeleton-answer"></div>
+                <div class="skeleton-block skeleton-answer"></div>
+                <div class="skeleton-block skeleton-answer"></div>
+            </div>
+            
+            <div id="error-message"></div>
+            <button id="back-to-setup-btn" class="btn" style="display: none; margin-top: 1rem;">Wróć</button>
+        </div>
+
+        <div id="quiz-screen">
+            <div id="progress-tracker">Pytanie 1 / 5</div>
+            <h2 id="question">Ładowanie pytania...</h2>
+            <div id="answer-buttons"></div>
+            <button id="next-btn" class="btn btn-primary">Następne pytanie</button>
+            
+            <div id="question-tracker-container"></div>
+        </div>
+
+    <div id="results-screen">
+        <div id="image-card-container">
+            <div id="image-card-flipper">
+                <div id="card-front" class="image-card-face">
+                    <img src="image.png" alt="Obrazek wynikowy" width="250">
+                </div>
+
+                <div id="card-back" class="image-card-face">
+                    <img src="" alt="Obrazek bonusowy" width="250" id="back-image">
+                </div>
+            </div>
+        </div>
+        <div id="score-text">Twój wynik: 0 z 0</div>
+        <div id="total-questions-served" style="margin-top: 1rem; font-size: 1.1rem; color: #6c757d;"></div>
+        <button id="restart-btn" class="btn btn-primary">Zacznij od nowa</button>
+    </div>
+
+    </div>
+
+    <script>
+        // === ZMIENIŁEŚ TO POPRZEDNIO - UPEWNIJ SIĘ, ŻE JEST OK ===
+        const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbyT4dOO7YHYMZXc8zUjjvdjfD7_NXBVm2WrqEs3aosDPyP-FLV5vTqvyI2NuH13-MVfsQ/exec';
+        const USE_MOCK_API = false; 
+        // =======================================================
+
+        const ALLOWED_CATEGORIES = ["Geologia", "Informatyka", "Historia"];
+
+        // --- Referencje do elementów DOM ---
+        const setupScreen = document.getElementById('setup-screen');
+        const loadingScreen = document.getElementById('loading-screen');
+        const quizScreen = document.getElementById('quiz-screen');
+        const resultsScreen = document.getElementById('results-screen');
+
+        const startButton = document.getElementById('start-btn');
+        const questionCountInput = document.getElementById('question-count');
+        
+        const loadingMessage = document.getElementById('loading-message');
+        const skeletonLoader = document.getElementById('skeleton-loader');
+        const errorMessage = document.getElementById('error-message');
+        const backToSetupButton = document.getElementById('back-to-setup-btn');
+
+        const progressTracker = document.getElementById('progress-tracker');
+        const questionElement = document.getElementById('question');
+        const answerButtonsElement = document.getElementById('answer-buttons');
+        const nextButton = document.getElementById('next-btn');
+        const trackerContainer = document.getElementById('question-tracker-container');
+
+        const scoreText = document.getElementById('score-text');
+        const restartButton = document.getElementById('restart-btn');
+
+	    const totalQuestionsServed = document.getElementById('total-questions-served');
+
+        const categorySelectionDiv = document.getElementById('category-selection'); // NOWOŚĆ
+
+        // --- Nowy, inteligentniejszy stan aplikacji ---
+        let quizData = null; 
+        let currentQuestionIndex = 0;
+        let totalQuestions = 0;
+        let userAnswers = []; // Zamiast 'score', przechowujemy tu wszystkie odpowiedzi
+        let selectedCategory = ALLOWED_CATEGORIES[0]; // <<< DODANE - Zmienna stanu dla kategorii
+        // --- Funkcje Przełączania Ekranów ---
+        function showScreen(screen) {
+            setupScreen.classList.remove('active');
+            loadingScreen.classList.remove('active');
+            quizScreen.classList.remove('active');
+            resultsScreen.classList.remove('active');
+            screen.classList.add('active');
+        }
+
+        // --- Funkcje API (bez zmian) ---
+        async function fetchQuestions(count, category) {
+            const url = `${API_BASE_URL}?count=${count}&category=${category}`;
+            // Pokaż skeleton, ukryj tekst
+            loadingMessage.style.display = 'none';
+            skeletonLoader.style.display = 'block';
+            errorMessage.innerText = "";
+            backToSetupButton.style.display = 'none';
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Błąd sieci: ${response.statusText}`);
+                const data = await response.json();
+                if (!data || !data.pytania || data.pytania.length === 0) {
+                   throw new Error("Otrzymano puste dane z serwera.");
+                }
+                return data;
+            } catch (error) {
+                console.error("Błąd podczas pobierania pytań:", error);
+                loadingMessage.style.display = 'block'; // Pokaż tekst błędu
+                loadingMessage.innerText = "Nie udało się pobrać pytań.";
+                skeletonLoader.style.display = 'none'; // Ukryj skeleton
+                errorMessage.innerText = error.message;
+                backToSetupButton.style.display = 'block';
+                return null;
+            }
+        }
+        // ... funkcja fetchMockQuestions (zostawiam dla kompletności) ...
+        function fetchMockQuestions(count) { /* ... (bez zmian) ... */ }
+
+        // --- NOWE FUNKCJE OBSŁUGI KATEGORII ---
+
+        function renderCategoryTiles() {
+            categorySelectionDiv.innerHTML = "";
+            
+            ALLOWED_CATEGORIES.forEach(categoryName => {
+                const tile = document.createElement('div');
+                tile.classList.add('category-tile');
+                tile.innerText = categoryName;
+                tile.dataset.category = categoryName;
+
+                // Domyślnie zaznacz pierwszą kategorię
+                if (categoryName === selectedCategory) {
+                    tile.classList.add('selected');
+                }
+
+                tile.addEventListener('click', handleCategorySelect);
+                categorySelectionDiv.appendChild(tile);
+            });
+        }
+
+        function handleCategorySelect(e) {
+        // Odznacz poprzedni kafelek
+        document.querySelectorAll('.category-tile').forEach(tile => {
+            tile.classList.remove('selected');
+        });
+
+        // Zaznacz nowy kafelek i zaktualizuj stan
+        const selectedTile = e.target;
+        selectedTile.classList.add('selected');
+        selectedCategory = selectedTile.dataset.category;
+        }
+
+        // --- NOWE FUNKCJE NAWIGACJI I TRACKERA ---
+
+        function initTracker() {
+            trackerContainer.innerHTML = ""; // Wyczyść stary tracker
+            for (let i = 0; i < totalQuestions; i++) {
+                const square = document.createElement('div');
+                square.classList.add('tracker-square');
+                square.innerText = i + 1;
+                square.dataset.index = i;
+                square.addEventListener('click', () => jumpToQuestion(i));
+                trackerContainer.appendChild(square);
+            }
+        }
+
+        function renderTracker() {
+            const squares = document.querySelectorAll('.tracker-square');
+            squares.forEach(square => {
+                const index = parseInt(square.dataset.index, 10);
+                const answer = userAnswers[index];
+
+                // Reset klas
+                square.classList.remove('current', 'answered', 'correct', 'incorrect');
+
+                if (answer) {
+                    square.classList.add('answered');
+                    if (answer.correct) {
+                        square.classList.add('correct');
+                    } else {
+                        square.classList.add('incorrect');
+                    }
+                }
+                
+                if (index === currentQuestionIndex) {
+                    square.classList.add('current');
+                }
+            });
+        }
+        
+        function jumpToQuestion(index) {
+            if (index < 0 || index >= totalQuestions) return;
+            currentQuestionIndex = index;
+            showQuestion();
+        }
+
+        // --- GŁÓWNA LOGIKA APLIKACJI (ZMODYFIKOWANA) ---
+        
+        async function handleStartQuiz() {
+            const count = parseInt(questionCountInput.value, 10);
+            if (count < 1) return;
+
+            showScreen(loadingScreen);
+            const data = USE_MOCK_API 
+                ? await fetchMockQuestions(count) 
+                : await fetchQuestions(count, selectedCategory);
+
+            if (data) {
+                quizData = data;
+                totalQuestions = quizData.ilosc;
+                // ZAINICJALIZUJ TABLICĘ ODPOWIEDZI
+                userAnswers = new Array(totalQuestions).fill(null);
+                
+                initTracker(); // Zbuduj kwadraciki
+                startQuiz();
+            }
+        }
+
+        function startQuiz() {
+            currentQuestionIndex = 0;
+            showScreen(quizScreen);
+            showQuestion();
+        }
+
+        function showQuestion() {
+            resetState();
+            const currentQuestion = quizData.pytania[currentQuestionIndex];
+            const recordedAnswer = userAnswers[currentQuestionIndex];
+
+            progressTracker.innerText = `Pytanie ${currentQuestionIndex + 1} / ${totalQuestions}`;
+            questionElement.innerText = currentQuestion.pytanie;
+
+            const answers = [...currentQuestion.zle_odp, currentQuestion.poprawna_odp];
+            // Nie tasujemy, jeśli już odpowiedzieliśmy, aby zachować kolejność
+            if (!recordedAnswer) {
+                 answers.sort(() => Math.random() - 0.5);
+            }
+            
+            let correctButton = null; // Musimy znaleźć poprawny przycisk
+            let selectedButton = null; // I ten, który zaznaczył user
+
+            answers.forEach(answerText => {
+                const button = document.createElement('button');
+                button.innerText = answerText;
+                button.classList.add('btn');
+                
+                if (answerText === currentQuestion.poprawna_odp) {
+                    button.dataset.correct = "true";
+                    correctButton = button;
+                }
+                
+                if (recordedAnswer && answerText === recordedAnswer.selected) {
+                    selectedButton = button;
+                }
+
+                button.addEventListener('click', selectAnswer);
+                answerButtonsElement.appendChild(button);
+            });
+
+            // Jeśli to pytanie zostało już odwiedzone i ma odpowiedź:
+            if (recordedAnswer) {
+                if (recordedAnswer.correct) {
+                    selectedButton.classList.add('correct');
+                } else {
+                    selectedButton.classList.add('wrong');
+                    correctButton.classList.add('correct'); // Pokaż poprawną
+                }
+                // Zablokuj wszystkie przyciski
+                Array.from(answerButtonsElement.children).forEach(btn => btn.disabled = true);
+                nextButton.style.display = 'block'; // Pokaż "Dalej"
+            }
+            
+            // Ustaw tekst przycisku "Dalej" / "Zobacz wyniki"
+            if (areAllQuestionsAnswered()) {
+                nextButton.innerText = "Zobacz wyniki";
+            } else {
+                nextButton.innerText = "Następne pytanie";
+            }
+            
+            renderTracker(); // Zawsze aktualizuj tracker
+        }
+
+        function resetState() {
+            nextButton.style.display = 'none';
+            while (answerButtonsElement.firstChild) {
+                answerButtonsElement.removeChild(answerButtonsElement.firstChild);
+            }
+        }
+
+        function selectAnswer(e) {
+            // Jeśli przyciski są zablokowane (np. po szybkim podwójnym kliknięciu), nic nie rób
+            if (e.target.disabled) return; 
+            
+            const selectedButton = e.target;
+            const isCorrect = selectedButton.dataset.correct === "true";
+
+            // ZAPISZ ODPOWIEDŹ w naszym nowym stanie
+            userAnswers[currentQuestionIndex] = {
+                selected: selectedButton.innerText,
+                correct: isCorrect
+            };
+
+            // Pokaż kolory i zablokuj przyciski (tak jak wcześniej)
+            Array.from(answerButtonsElement.children).forEach(button => {
+                if (button.dataset.correct === "true") {
+                    button.classList.add('correct');
+                }
+                if (button === selectedButton && !isCorrect) {
+                     button.classList.add('wrong');
+                }
+                button.disabled = true;
+            });
+
+            nextButton.style.display = 'block';
+            renderTracker(); // Zaktualizuj kwadraciki
+            if (areAllQuestionsAnswered()) {
+                nextButton.innerText = "Zobacz wyniki";
+            } else {
+                nextButton.innerText = "Następne pytanie";
+            }
+        }
+
+        function handleNextButton() {
+            // 1. Sprawdź, czy WSZYSTKIE pytania mają odpowiedź
+            if (areAllQuestionsAnswered()) {
+                showResults();
+                return;
+            }
+
+            // 2. Jeśli nie, znajdź najbliższe nieodpowiedziane pytanie
+            // Najpierw szukaj do przodu, od bieżącego miejsca
+            const nextUnanswered = userAnswers.indexOf(null, currentQuestionIndex + 1);
+
+            if (nextUnanswered !== -1) {
+                // Znaleziono! Przeskocz do tego pytania.
+                jumpToQuestion(nextUnanswered);
+                return;
+            }
+
+            // 3. Jeśli nie znaleziono (bo reszta jest pełna), 
+            // szukaj od początku (zawijanie)
+            const firstUnanswered = userAnswers.indexOf(null, 0);
+
+            if (firstUnanswered !== -1) {
+                // Znaleziono! Przeskocz do niego.
+                jumpToQuestion(firstUnanswered);
+                return;
+            }
+            
+            // Teoretycznie ten kod jest już niepotrzebny przez krok 1,
+            // ale na wszelki wypadek: jeśli wszystko jest pełne, pokaż wyniki.
+            showResults();
+        }
+
+        function areAllQuestionsAnswered() {
+            // Sprawdza, czy w tablicy userAnswers jest jeszcze jakieś 'null'
+            return !userAnswers.includes(null);
+        }
+
+        function showResults() {
+    const finalScore = userAnswers.filter(a => a && a.correct).length;
+
+    showScreen(resultsScreen);
+    scoreText.innerText = `Koniec! Twój wynik: ${finalScore} z ${totalQuestions}`;
+
+    // === NOWY KOD DO OBSŁUGI ANIMACJI KARTY ===
+    const flipper = document.getElementById('image-card-flipper');
+    // Upewnij się, że flipper nie jest obrócony przy ponownym wyświetleniu wyników
+    flipper.classList.remove('flipped');
+    // ===========================================
+
+
+    if (quizData && quizData.razem_zadanych) {
+        const startValue = quizData.razem_zadanych;
+        const increment = totalQuestions;
+        const endValue = startValue + increment;
+        const duration = 2000;
+
+        totalQuestionsServed.innerHTML = `Nasi użytkownicy dostali łącznie <span id="counter">${startValue}</span> pytań!`;
+
+        const plusBubble = document.createElement('span');
+        plusBubble.classList.add('plus-bubble');
+        plusBubble.textContent = `+${increment}`;
+        totalQuestionsServed.appendChild(plusBubble);
+
+        const counterElement = document.getElementById('counter');
+        let startTime = null;
+
+        function animateCount(timestamp) {
+            if (!startTime) startTime = timestamp;
+            const progress = Math.min((timestamp - startTime) / duration, 1);
+            const currentValue = Math.floor(startValue + progress * (endValue - startValue));
+            counterElement.textContent = currentValue.toLocaleString('pl-PL');
+
+            if (progress < 1) {
+                requestAnimationFrame(animateCount);
+            } else {
+                counterElement.textContent = endValue.toLocaleString('pl-PL');
+                
+                // === NOWOŚĆ: Wywołanie obrotu po zakończeniu animacji liczenia ===
+                setTimeout(triggerCardFlip, 500); // 500ms opóźnienia po zakończeniu animacji
+                // =================================================================
+            }
+        }
+
+        requestAnimationFrame(animateCount);
+    } else {
+        totalQuestionsServed.innerText = '';
+        // Jeśli nie ma licznika, odwróć od razu (lub z opóźnieniem, aby plus zniknął)
+        setTimeout(triggerCardFlip, 500); 
+    }
+}
+
+// === NOWA FUNKCJA DO OBSŁUGI OBRACANIA KARTY (ZMODYFIKOWANA) ===
+function triggerCardFlip() {
+    // 50% szans, że obrót nastąpi (0.9 to 90% szans) - dostosowuję do Twojej wartości 0.9
+    if (Math.random() < 0.9) { 
+        const flipper = document.getElementById('image-card-flipper');
+        const backImage = document.getElementById('back-image'); // Pobieramy element obrazka na rewersie
+
+        // Lista wszystkich możliwych obrazków bonusowych
+        const bonusImages = ["images/Img1.png", "images/Img2.png", "images/Img3.png", "images/Img4.png", "images/Img5.png", "images/Img6.png"];
+        
+        // Losowanie jednego obrazka z listy
+        const randomIndex = Math.floor(Math.random() * bonusImages.length);
+        const selectedImage = bonusImages[randomIndex];
+        
+        // Ustawienie źródła obrazka przed obrotem
+        backImage.src = selectedImage;
+
+        // Uruchomienie obrotu
+        flipper.classList.add('flipped');
+    }
+}
+
+        
+        function handleRestart() {
+            // Zresetuj cały stan
+            quizData = null;
+            userAnswers = [];
+            totalQuestions = 0;
+            currentQuestionIndex = 0;
+            trackerContainer.innerHTML = ""; // Wyczyść kwadraciki
+            
+            // Wróć do ekranu ustawień
+            showScreen(setupScreen);
+        }
+
+        // --- Powiązanie Eventów ---
+        startButton.addEventListener('click', handleStartQuiz);
+        backToSetupButton.addEventListener('click', handleRestart);
+        nextButton.addEventListener('click', handleNextButton);
+        restartButton.addEventListener('click', handleRestart);
+
+        // --- Inicjalizacja Aplikacji ---
+        showScreen(setupScreen);
+        renderCategoryTiles()
+    </script>
+</body>
+</html>
