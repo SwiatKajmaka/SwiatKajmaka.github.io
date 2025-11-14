@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Machina Czasu</title>
+<style>
+/* Importowanie czcionek Google */
+@import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@700&family=Open+Sans:wght@400;600&display=swap');
+
+body {
+  font-family: 'Open Sans', Arial, sans-serif;
+  background: #f4f1ea;
+  color: #333;
+  line-height: 1.6;
+  padding: 40px;
+  /* Zwiększamy max-width, aby bento miało sens */
+  max-width: 1200px;
+  margin: auto;
+}
+
+h1 {
+  font-family: 'Merriweather', serif;
+  text-align: justify;
+  text-justify: inter-word; /* dodatkowo poprawia rozciąganie słów */
+  color: #222;
+  border-bottom: 3px solid #ddd;
+  padding-bottom: 15px;
+  margin-bottom: 40px;
+
+}
+
+/* === KLUCZOWE ZMIANY DLA BENTO === */
+
+#container {
+  display: grid;
+  /* Tworzymy siatkę 2x2 */
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
+  /* Używamy 'gap' zamiast 'margin-bottom' */
+  gap: 25px;
+}
+
+.news-card {
+  background: #ffffff;
+  border-radius: 12px; /* Lekko większe zaokrąglenie */
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  padding: 25px 30px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  
+  /* Ważne: Używamy flexbox WEWNĄTRZ karty, 
+     aby "wypchnąć" przycisk na sam dół */
+  display: flex;
+  flex-direction: column;
+}
+
+.news-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+}
+
+/* Reguły pozycjonowania dla Bento */
+
+.news-card:nth-child(1) {
+  /* Pierwszy news zajmuje 2 rzędy (całą lewą kolumnę) */
+  grid-row: 1 / 3;
+  /* Dajemy mu większy tytuł, bo jest "gwiazdą" */
+}
+
+.news-card:nth-child(2) {
+  /* Drugi news w prawym górnym rogu */
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.news-card:nth-child(3) {
+  /* Trzeci news w prawym dolnym rogu */
+  grid-column: 2;
+  grid-row: 2;
+}
+
+/* === RESZTA STYLÓW KARTY === */
+
+.news-card h2 {
+  font-family: 'Merriweather', serif;
+  font-size: 1.7rem;
+  color: #1a1a1a;
+  margin-top: 0;
+}
+
+.news-card p {
+  font-size: 1rem;
+  color: #444;
+  text-align: justify;
+  text-justify: inter-word; /* dodatkowo poprawia rozciąganie słów */
+  /* To sprawia, że paragraf rośnie i zajmuje 
+     dostępne miejsce, wypychając przycisk */
+  flex-grow: 1;
+}
+
+.show-source {
+  display: inline-block;
+  background: #0077cc;
+  color: #ffffff;
+  padding: 6px 12px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  /* 'margin-top' jest teraz ważny, by oddzielić 
+     go od rosnącego paragrafu */
+  margin-top: 20px; 
+  /* Zapobiega rozciągnięciu przycisku */
+  align-self: flex-start; 
+}
+
+.show-source:hover {
+  background: #005eaa;
+}
+
+.source {
+  margin-top: 15px;
+  font-size: 14px;
+  color: #555;
+  background: #f9f9f9;
+  border-left: 4px solid #0077cc;
+  padding: 12px;
+  display: none;
+}
+
+.source a {
+  color: #0077cc;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.source a:hover {
+  text-decoration: underline;
+}
+
+#container:empty::before {
+  content: 'Wczytywanie...';
+  display: block;
+  text-align: center;
+  font-size: 1.2rem;
+  color: #888;
+  /* Ważne: jeśli kontener jest gridem, 
+     "Wczytywanie" też musi być w siatce */
+  grid-column: 1 / 3;
+}
+</style>
+</head>
+<body>
+
+<h1>🕰️ Machina Czasu – News sprzed 20 lat</h1>
+<div id="container">Wczytywanie...</div>
+
+<script src="main.js"></script>
+
+</body>
+</html>
