@@ -1,0 +1,12 @@
+:root{font-family:system-ui,Segoe UI,Roboto,Arial}
+body{margin:0;background:#f4fff4;color:#0a2a0a}
+.container{max-width:720px;margin:40px auto;padding:0 16px}
+.card{background:#ffffff;border-radius:12px;padding:20px;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
+.center{text-align:center}
+input{width:100%;padding:10px;margin-top:8px;border-radius:8px;border:1px solid #ddd}
+.row{display:flex;gap:10px;margin-top:12px}
+button{flex:1;padding:10px;border-radius:8px;border:0;background:#2f9e44;color:white;font-weight:600;cursor:pointer}
+button:hover{opacity:0.95}
+.back{display:inline-block;margin-bottom:12px;color:#2f9e44}
+#svgContainer svg{max-width:320px;height:auto}
+.phase-seed{filter:grayscale(30%) brightness(0.95)}
